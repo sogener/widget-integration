@@ -1,0 +1,180 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Интеграция виджетов{% endblock %}
+
+{% block body %}
+    <style>
+        .wrapper {
+            margin: 1em auto;
+            width: 95%;
+            font: 18px/1.5 sans-serif;
+        }
+
+        .wrapper-inner {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .wrapper-inner div {
+            max-width: 500px;
+        }
+
+        .wrapper code {
+            background: #F5F5F5;
+            padding: 2px 6px;
+        }
+
+        .cities {
+            list-style-type: none;
+        }
+
+        .cities .items {
+            cursor: pointer;
+            text-decoration: underline;
+            color: #5e5eff;
+        }
+
+        .delivery .items {
+            cursor: pointer;
+            text-decoration: underline;
+            color: #5e5eff;
+        }
+
+    </style>
+
+    <script>
+        $(document).on('click', 'div.cities div.items li', function () {
+            let elem = $(this);
+            let kladrId = elem.attr('data-kladr_id');
+
+            $.ajax({
+                url: '{{ (path('app_calculate_shipping')) }}',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    "kladr_id": kladrId
+                },
+                async: true,
+                success: function (data) {
+                    let responseData = data['settlements']
+
+                    let delivery = $('.delivery')
+                    let deliveryTitle = delivery.find('.title')
+                    deliveryTitle.text("Способы доставки для " + elem.text())
+
+                    let deliveryItems = delivery.find('.items')
+
+                    // Очистка предыдущих значений
+                    deliveryItems.empty()
+
+                    let deliverPlaces = $('.deliver-places')
+                    let deliverPlacesItems = deliverPlaces.find('.items')
+
+                    // Очистка предыдущих значений
+                    deliverPlacesItems.empty()
+
+                    deliveryItems.attr('data-kladr_id', responseData.request.kladr_id)
+
+                    $.each(responseData['methods'], function (index, element) {
+                        let city = $("<li/>")
+                            .text(element.method.name)
+
+                        deliveryItems.append(city)
+                    });
+                }
+            });
+            return false;
+
+        });
+
+        $(document).on('click', 'div.delivery div.items li', function () {
+            let elem = $(this);
+            let items = elem.parent()
+
+            let kladrId = items.attr('data-kladr_id');
+
+            $.ajax({
+                url: '{{ (path('app_deliver')) }}',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    "kladr_id": kladrId
+                },
+                async: true,
+                success: function (data) {
+                    let responseData = data['deliveryCities']
+
+                    let deliverPlaces = $('.deliver-places')
+
+                    let deliveryTitle = deliverPlaces.find('.title')
+                    deliveryTitle.text("Способы доставки для " + elem.text())
+
+                    let items = deliverPlaces.find('.items')
+                    items.empty()
+
+                    $.each(responseData, function (index, element) {
+                        console.log(element)
+                        let place = $("<li/>")
+                            .text(element.name)
+
+                        items.append(place)
+                    });
+                }
+            });
+            return false;
+
+        });
+
+        $(document).on('input', 'input.search-city', function () {
+            let elem = $(this);
+
+            $.ajax({
+                url: '{{ (path('app_settlement_suggest')) }}',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    "query": elem.val()
+                },
+                async: true,
+                success: function (data) {
+                    console.log(data)
+                    let result = $('.cities').find('.items')
+                    result.empty()
+
+                    $.each(data['settlements'], function (index, element) {
+                        let city = $("<li/>")
+                            .attr("data-kladr_id", element.kladr_id)
+                            .text(element.name)
+                        // .html("<p>Название: " + element.name + "</p>")
+
+                        result.append(city)
+                    });
+
+                }
+            });
+            return false;
+
+        });
+    </script>
+
+    <div class="wrapper">
+        <div class="wrapper-inner">
+            <div class="cities">
+                <h1 class="title">Список городов ✅</h1>
+                <div class="search">
+                    <input type="text" name="search-city" class="search-city" placeholder="Поиск по городу">
+                    <div class="search__suggests"></div>
+                </div>
+                <div class="items"></div>
+            </div>
+            <div class="delivery">
+                <h1 class="title"></h1>
+                <div class="items"></div>
+            </div>
+            <div class="deliver-places">
+                <h1 class="title"></h1>
+                <div class="items"></div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
